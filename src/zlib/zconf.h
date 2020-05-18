@@ -216,7 +216,7 @@ typedef uLong FAR uLongf;
 
 #ifndef Z_SOLO
 #  if defined(Z_HAVE_UNISTD_H) || defined(_LARGEFILE64_SOURCE)
-#    include <unistd.h>         /* for SEEK_*, off_t, and _LFS64_LARGEFILE */
+#    include <io.h>         /* for SEEK_*, off_t, and _LFS64_LARGEFILE */
 #    ifndef z_off_t
 #      define z_off_t off_t
 #    endif

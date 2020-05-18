@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <fcntl.h>
-#include <unistd.h>
+#include <io.h>
 #include <algorithm>
 #ifdef _WIN32
 #include <Windows.h>
@@ -248,7 +248,7 @@ size_t Zip::Leanify(const ECTOptions& Options, size_t* files) {
   vector<CDHeader> cd_headers;
   uint8_t* p_end = fp_ + size_;
   // smallest possible location of EOCD if there's a 64K comment
-  uint8_t* p_searchstart = std::max(fp_, p_end - 65535 - sizeof(eocd.magic));
+  uint8_t* p_searchstart = max(fp_, p_end - 65535 - sizeof(eocd.magic));
   uint8_t* p_eocd = nullptr;
   while (true) {
     if (p_eocd != nullptr) {

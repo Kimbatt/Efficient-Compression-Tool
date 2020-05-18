@@ -6,9 +6,13 @@
 #include "main.h"
 #include "support.h"
 #include "miniz/miniz.h"
-#include <unistd.h>
+#include <io.h>
 #include <limits.h>
 #include <atomic>
+#include <filesystem>
+#include <chrono>
+#include <iostream>
+#include <iomanip>
 
 #ifndef NOMULTI
 #include <thread>
@@ -25,6 +29,7 @@
 static std::atomic<size_t> processedfiles;
 static std::atomic<size_t> bytes;
 static std::atomic<long long> savings;
+static std::chrono::steady_clock::time_point startTime;
 
 static void Usage() {
     printf (
@@ -34,28 +39,16 @@ static void Usage() {
 #ifdef __DATE__
             " compiled on %s\n"
 #endif
-            "Folder support "
-#ifdef BOOST_SUPPORTED
-            "enabled\n"
-#else
-            "disabled\n"
-#endif
-
+            "Folder support enabled\n"
             "Losslessly optimizes GZIP, ZIP, JPEG and PNG images\n"
-            "Usage: ECT [Options] Files"
-#ifdef BOOST_SUPPORTED
-            "/Folders"
-#endif
-            "...\n"
+            "Usage: ECT [Options] Files/Folders...\n"
             "Options:\n"
             " -1 to -9          Set compression level (Default: 3)\n"
             " -strip            Strip metadata\n"
             " -progressive      Use progressive encoding for JPEGs\n"
             " -autorotate       Automatically rotate JPEGs, when perfectly transformable\n"
             " -autorotate=force Automatically rotate JPEGs, dropping non-transformable edge blocks\n"
-#ifdef BOOST_SUPPORTED
             " -recurse          Recursively search directories\n"
-#endif
             " -zip              Compress file(s) with  ZIP algorithm\n"
             " -gzip             Compress file with GZIP algorithm\n"
             " -quiet            Print only error messages\n"
@@ -91,40 +84,52 @@ static void RenameAndReplace(const char * Infile, const char * Outfile){
 }
 
 static void ECT_ReportSavings(){
-    size_t localProcessedFiles = processedfiles.load(std::memory_order_seq_cst);
-    size_t localBytes = bytes.load(std::memory_order_seq_cst);
-    long long localSavings = savings.load(std::memory_order_seq_cst);
-    if (localProcessedFiles){
-        printf("Processed %zu file%s\n", localProcessedFiles, localProcessedFiles > 1 ? "s":"");
-        if (localSavings < 0){
-            printf("Result is bigger\n");
-            return;
-        }
+    std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
+	size_t localProcessedFiles = processedfiles.load(std::memory_order_seq_cst);
+	size_t localBytes = bytes.load(std::memory_order_seq_cst);
+	long long localSavings = savings.load(std::memory_order_seq_cst);
+	if (localProcessedFiles) {
+		printf("Processed %zu file%s\n", localProcessedFiles, localProcessedFiles > 1 ? "s" : "");
+		if (localSavings < 0) {
+			printf("Result is bigger\n");
+			return;
+		}
 
-        int bk = 0;
-        int k = 0;
-        double smul = localSavings;
-        double bmul = localBytes;
-        while (smul > 1024) {smul /= 1024; k++;}
-        while (bmul > 1024) {bmul /= 1024; bk++;}
-        char *counter;
-        if (k == 1) {counter = (char *)"K";}
-        else if (k == 2) {counter = (char *)"M";}
-        else if (k == 3) {counter = (char *)"G";}
-        else {counter = (char *)"";}
-        char *counter2;
-        if (bk == 1){counter2 = (char *)"K";}
-        else if (bk == 2){counter2 = (char *)"M";}
-        else if (bk == 3){counter2 = (char *)"G";}
-        else {counter2 = (char *)"";}
-        printf("Saved ");
-        if (k == 0){printf("%0.0f", smul);}
-        else{printf("%0.2f", smul);}
-        printf("%sB out of ", counter);
-        if (bk == 0){printf("%0.0f", bmul);}
-        else{printf("%0.2f", bmul);}
-        printf("%sB (%0.4f%%)\n", counter2, (100.0 * localSavings)/localBytes);}
-    else {printf("No compatible files found\n");}
+		double savedSize = localSavings;
+		double originalSize = localBytes;
+		double newSize = originalSize - savedSize;
+		int savedSizeMagnitude = savedSize <= 0.0 ? 0 : (int)(log(savedSize) / log(1024.0));
+		int originalSizeMagnitude = originalSize <= 0.0 ? 0 : (int)(log(originalSize) / log(1024.0));
+		int newSizeMagnitude = newSize <= 0.0 ? 0 : (int)(log(newSize) / log(1024.0));
+
+        savedSize /= pow(1024.0, (double)savedSizeMagnitude);
+        originalSize /= pow(1024.0, (double)originalSizeMagnitude);
+        newSize /= pow(1024.0, (double)newSizeMagnitude);
+
+        static constexpr const char* sizes[] = { "", "k", "M", "G", "T", "P", "E" };
+
+        auto savedSizeFormat = (savedSizeMagnitude == 0 ? std::setprecision(0) : std::setprecision(2));
+        auto originalSizeFormat = (originalSizeMagnitude == 0 ? std::setprecision(0) : std::setprecision(2));
+        auto newSizeFormat = (newSizeMagnitude == 0 ? std::setprecision(0) : std::setprecision(2));
+
+        std::cout << "Saved " << std::fixed << savedSizeFormat << savedSize << sizes[savedSizeMagnitude] << "B"
+            << " out of " << std::fixed << originalSizeFormat << originalSize << sizes[originalSizeMagnitude] << "B"
+            << " (" << std::fixed << std::setprecision(4) << ((100.0 * localSavings) / localBytes) << "%), "
+            << "New size: " << std::fixed << newSizeFormat << newSize << sizes[newSizeMagnitude] << "B" << std::endl;
+
+        long long totalMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        int milliseconds = totalMilliseconds % 1000;
+        int seconds = (totalMilliseconds / 1000) % 60;
+        int minutes = (totalMilliseconds / (1000 * 60)) % 60;
+        int hours = totalMilliseconds / (1000 * 60 * 60);
+        std::cout << "Done in " << std::setw(2) << std::setfill('0') << hours
+            << ":" << std::setw(2) << std::setfill('0') << minutes
+            << ":" << std::setw(2) << std::setfill('0') << seconds
+            << "." << std::setw(3) << std::setfill('0') << milliseconds;
+	}
+	else {
+        printf("No compatible files found\n");
+    }
 }
 
 static int ECTGzip(const char * Infile, const unsigned Mode, unsigned char multithreading, long long fs, unsigned ZIP, int strict){
@@ -371,11 +376,7 @@ unsigned zipHandler(std::vector<int> args, const char * argv[], int files, const
     }
     else{
         //Construct name
-        if(!isDirectory(argv[args[0]])
-#ifdef BOOST_SUPPORTED
-           && boost::filesystem::is_regular_file(argv[args[0]])
-#endif
-           ){
+        if(!isDirectory(argv[args[0]]) && std::filesystem::is_regular_file(argv[args[0]])){
             if(zipfilename.find_last_of(".") > zipfilename.find_last_of("/\\")) {
                 zipfilename = zipfilename.substr(0, zipfilename.find_last_of("."));
             }
@@ -394,12 +395,11 @@ unsigned zipHandler(std::vector<int> args, const char * argv[], int files, const
     int error = 0;
     for(; error == 0 && i < files; i++){
         if(isDirectory(argv[args[i]])){
-#ifdef BOOST_SUPPORTED
-            std::string fold = boost::filesystem::canonical(argv[args[i]]).string();
-            int substr = boost::filesystem::path(fold).has_parent_path() ? boost::filesystem::path(fold).parent_path().string().length() + 1 : 0;
+            std::string fold = std::filesystem::canonical(argv[args[i]]).string();
+            int substr = std::filesystem::path(fold).has_parent_path() ? std::filesystem::path(fold).parent_path().string().length() + 1 : 0;
 
-            boost::filesystem::recursive_directory_iterator a(fold), b;
-            std::vector<boost::filesystem::path> paths(a, b);
+            std::filesystem::recursive_directory_iterator a(fold), b;
+            std::vector<std::filesystem::path> paths(a, b);
             for(unsigned j = 0; j < paths.size(); j++){
                 std::string newfile = paths[j].string();
                 const char* name = newfile.erase(0, substr).c_str();
@@ -448,9 +448,6 @@ unsigned zipHandler(std::vector<int> args, const char * argv[], int files, const
                     printf("can't add directory '%s'\n", argv[args[i]]);
                 }
             }
-#else
-            printf("%s: Zipping folders is not supported\n", argv[args[i]]);
-#endif
         }
         else{
 
@@ -519,9 +516,7 @@ int main(int argc, const char * argv[]) {
     Options.Progressive = false;
     Options.Autorotate = 0;
     Options.Mode = 3;
-#ifdef BOOST_SUPPORTED
     Options.Recurse = false;
-#endif
     Options.PNG_ACTIVE = true;
     Options.JPEG_ACTIVE = true;
     Options.Arithmetic = false;
@@ -564,9 +559,7 @@ int main(int argc, const char * argv[]) {
             else if (strncmp(argv[i], "-keep", strlen) == 0) {Options.keep = true;}
             else if (strcmp(argv[i], "--disable-jpeg") == 0 || strcmp(argv[i], "--disable-jpg") == 0 ){Options.JPEG_ACTIVE = false;}
             else if (strcmp(argv[i], "--disable-png") == 0){Options.PNG_ACTIVE = false;}
-#ifdef BOOST_SUPPORTED
             else if (strncmp(argv[i], "-recurse", strlen) == 0)  {Options.Recurse = 1;}
-#endif
             else if (strcmp(argv[i], "--strict") == 0) {Options.Strict = true;}
             else if (strcmp(argv[i], "--reuse") == 0) {Options.Reuse = true;}
             else if (strcmp(argv[i], "--allfilters") == 0) {Options.Allfilters = true;}
@@ -607,26 +600,26 @@ int main(int argc, const char * argv[]) {
         if(Options.Reuse){
             Options.Allfilters = 0;
         }
+        startTime = std::chrono::steady_clock::now();
         if(Options.Zip && files){
             error |= zipHandler(args, argv, files, Options);
         }
         else {
             std::vector<std::string> fileList;
             for (int j = 0; j < files; j++){
-#ifdef BOOST_SUPPORTED
-                if (boost::filesystem::is_regular_file(argv[args[j]])){
+                if (std::filesystem::is_regular_file(argv[args[j]])){
                     fileList.push_back(argv[args[j]]);
                 }
-                else if (boost::filesystem::is_directory(argv[args[j]])){
-                    if(Options.Recurse){boost::filesystem::recursive_directory_iterator a(argv[args[j]]), b;
-                        std::vector<boost::filesystem::path> paths(a, b);
+                else if (std::filesystem::is_directory(argv[args[j]])){
+                    if(Options.Recurse){std::filesystem::recursive_directory_iterator a(argv[args[j]]), b;
+                        std::vector<std::filesystem::path> paths(a, b);
                         for(unsigned i = 0; i < paths.size(); i++){
                             fileList.push_back(paths[i].string());
                         }
                     }
                     else{
-                        boost::filesystem::directory_iterator a(argv[args[j]]), b;
-                        std::vector<boost::filesystem::path> paths(a, b);
+                        std::filesystem::directory_iterator a(argv[args[j]]), b;
+                        std::vector<std::filesystem::path> paths(a, b);
                         for(unsigned i = 0; i < paths.size(); i++){
                             fileList.push_back(paths[i].string());
                         }
@@ -635,9 +628,6 @@ int main(int argc, const char * argv[]) {
                 else{
                     error = 1;
                 }
-#else
-                fileList.push_back(argv[args[j]]);
-#endif
             }
 #ifndef NOMULTI
             if (Options.FileMultithreading) {

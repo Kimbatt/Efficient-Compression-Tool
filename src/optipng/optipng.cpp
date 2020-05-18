@@ -24,7 +24,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
-#include <unistd.h>
+#include <io.h>
 
 #include "trans.h"
 #include "opngcore.h"

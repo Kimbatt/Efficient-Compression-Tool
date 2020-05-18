@@ -1,12 +1,23 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+
+set (CMAKE_GENERATOR_TOOLSET "clangcl")
 project(ect VERSION 0.8.3 LANGUAGES CXX C)
 
 include(GNUInstallDirs)
-set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD 17)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release)
 endif()
+
+# Enable enhanced instruction set:      Advanced Vector Extensions 2 (/arch:AVX2)
+# Enable intrinsic functions:           Yes (/Oi)
+# Favor size or speed:                  Favor fast code (/Ot)
+# Floating point model:                 Fast (/fp:fast)
+# Inline function expansion:            Any Suitable (/Ob2)
+set(ECT_RELEASE_COMPILER_FLAGS  "/arch:AVX2 /Oi /Ot /fp:fast /Ob2")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${ECT_RELEASE_COMPILER_FLAGS}")
+set(CMAKE_CXX_FLAGS_RELEASE        "${CMAKE_CXX_FLAGS_RELEASE} ${ECT_RELEASE_COMPILER_FLAGS}")
 
 # Check that submodules are present only if source was downloaded with git
 if(EXISTS "${CMAKE_SOURCE_DIR}/../.git" AND NOT EXISTS "${CMAKE_SOURCE_DIR}/../src/libpng/README")
@@ -48,7 +59,6 @@ add_definitions(-DZLIB_CONST)
 
 option(ECT_MULTITHREADING "Enable multithreaded processing support" ON)
 option(ECT_MP3_SUPPORT "Enable MP3 support (not currently working)" OFF)
-option(ECT_FOLDER_SUPPORT "Enable folder support (requires Boost)" OFF)
 
 add_subdirectory(leanify EXCLUDE_FROM_ALL)
 add_subdirectory(lodepng EXCLUDE_FROM_ALL)
@@ -89,15 +99,6 @@ if(ECT_MP3_SUPPORT)
 	target_compile_definitions(ect
 		PRIVATE
 			MP3_SUPPORTED=1)
-endif()
-
-if(ECT_FOLDER_SUPPORT)
-	find_package(Boost 1.56 REQUIRED COMPONENTS filesystem)
-	target_link_libraries(ect
-		Boost::filesystem)
-	target_compile_definitions(ect
-		PRIVATE
-			BOOST_SUPPORTED=1)
 endif()
 
 install(TARGETS ect RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -9,7 +9,7 @@
 #ifndef __Efficient_Compression_Tool__support__
 #define __Efficient_Compression_Tool__support__
 
-#include <unistd.h>
+#include <io.h>
 #include <time.h>
 
 // Returns Filesize of Infile
