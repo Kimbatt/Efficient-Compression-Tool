@@ -9,7 +9,17 @@
 #ifndef __Efficient_Compression_Tool__support__
 #define __Efficient_Compression_Tool__support__
 
+#ifdef _WIN32
 #include <io.h>
+
+// required values from unistd.h
+#define	R_OK    4       /* Test for read permission.  */
+#define	W_OK    2       /* Test for write permission.  */
+#define	X_OK    1       /* Test for execute permission.  */
+#define	F_OK    0       /* Test for existence.  */
+#else
+#include <unistd.h>
+#endif
 #include <time.h>
 
 // Returns Filesize of Infile

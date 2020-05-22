@@ -24,7 +24,12 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+
+#ifdef _WIN32
 #include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "trans.h"
 #include "opngcore.h"

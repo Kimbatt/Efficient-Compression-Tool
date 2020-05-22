@@ -9,7 +9,11 @@
 #include "support.h"
 #include <sys/stat.h>
 #include <time.h>
+#ifdef _WIN32
 #include <sys/utime.h>
+#else
+#include <utime.h>
+#endif
 #include <stdio.h>
 
 long long filesize (const char * Infile) {
@@ -26,7 +30,7 @@ bool exists(const char * Infile) {
 }
 
 bool writepermission (const char * Infile) {
-    return !access (Infile, 2);
+    return !access (Infile, W_OK);
 }
 
 bool isDirectory(const char *path) {

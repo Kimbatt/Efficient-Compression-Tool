@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 #include <fcntl.h>
-#include <io.h>
 #include <algorithm>
 #ifdef _WIN32
 #include <Windows.h>
@@ -12,6 +11,7 @@
 #include <io.h>
 #endif
 #else
+#include <unistd.h>
 #include <sys/param.h>
 #endif
 
