@@ -244,33 +244,33 @@ static size_t EncodeTree(const unsigned* ll_lengths,
         ZOPFLI_APPEND_DATA(0, &rle_bits, &rle_bits_size);
       }
       while (count >= 3) {
-				if (fuse_8 && count == 8) { /* record 8 as 4+4 not as 6+single+single */
-					if (!size_only) {
-						ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
-						ZOPFLI_APPEND_DATA(1, &rle_bits, &rle_bits_size);
-						ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
-						ZOPFLI_APPEND_DATA(1, &rle_bits, &rle_bits_size);
-					}
-					clcounts[16] += 2;
-					count = 0;
-				} else if (fuse_7 && count == 7) { /* record 7 as 4+3 not as 6+single */
-					if (!size_only) {
-						ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
-						ZOPFLI_APPEND_DATA(1, &rle_bits, &rle_bits_size);
-						ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
-						ZOPFLI_APPEND_DATA(0, &rle_bits, &rle_bits_size);
-					}
-					clcounts[16] += 2;
-					count = 0;
-				} else {
-					unsigned count2 = count > 6 ? 6 : count;
-					if (!size_only) {
-						ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
-						ZOPFLI_APPEND_DATA(count2 - 3, &rle_bits, &rle_bits_size);
-					}
-					clcounts[16]++;
-					count -= count2;
-				}
+        if (fuse_8 && count == 8) { /* record 8 as 4+4 not as 6+single+single */
+            if (!size_only) {
+                ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
+                ZOPFLI_APPEND_DATA(1, &rle_bits, &rle_bits_size);
+                ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
+                ZOPFLI_APPEND_DATA(1, &rle_bits, &rle_bits_size);
+            }
+            clcounts[16] += 2;
+            count = 0;
+        } else if (fuse_7 && count == 7) { /* record 7 as 4+3 not as 6+single */
+            if (!size_only) {
+                ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
+                ZOPFLI_APPEND_DATA(1, &rle_bits, &rle_bits_size);
+                ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
+                ZOPFLI_APPEND_DATA(0, &rle_bits, &rle_bits_size);
+            }
+            clcounts[16] += 2;
+            count = 0;
+        } else {
+            unsigned count2 = count > 6 ? 6 : count;
+            if (!size_only) {
+                ZOPFLI_APPEND_DATA(16, &rle, &rle_size);
+                ZOPFLI_APPEND_DATA(count2 - 3, &rle_bits, &rle_bits_size);
+            }
+            clcounts[16]++;
+            count -= count2;
+        }
       }
     }
 
@@ -1304,7 +1304,7 @@ static void DeflateSplittingFirst(const ZopfliOptions* options,
   SymbolStats* statsp = 0;
   ZopfliBlockSplit(options, in, instart, inend, &splitpoints, &npoints, &statsp, twiceMode, *twiceStore);
 
-  ZopfliLZ77Store* stores;
+  ZopfliLZ77Store* stores = nullptr;
   if (twiceMode & 1){
     stores = (ZopfliLZ77Store*)malloc((npoints + 1) * sizeof(ZopfliLZ77Store));
     if(!stores){

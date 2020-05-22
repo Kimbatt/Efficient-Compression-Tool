@@ -33,8 +33,8 @@ struct ECTOptions{
   bool Allfiltersbrute;
   bool Allfilterscheap;
   bool Recurse;
-  unsigned DeflateMultithreading;
-  unsigned FileMultithreading;
+  int DeflateMultithreading;
+  int FileMultithreading;
   bool keep;
 };
 

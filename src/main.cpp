@@ -85,22 +85,22 @@ static void RenameAndReplace(const char * Infile, const char * Outfile){
 
 static void ECT_ReportSavings(){
     std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
-	size_t localProcessedFiles = processedfiles.load(std::memory_order_seq_cst);
-	size_t localBytes = bytes.load(std::memory_order_seq_cst);
-	long long localSavings = savings.load(std::memory_order_seq_cst);
-	if (localProcessedFiles) {
-		printf("Processed %zu file%s\n", localProcessedFiles, localProcessedFiles > 1 ? "s" : "");
-		if (localSavings < 0) {
-			printf("Result is bigger\n");
-			return;
-		}
+    size_t localProcessedFiles = processedfiles.load(std::memory_order_seq_cst);
+    size_t localBytes = bytes.load(std::memory_order_seq_cst);
+    long long localSavings = savings.load(std::memory_order_seq_cst);
+    if (localProcessedFiles) {
+        printf("Processed %zu file%s\n", localProcessedFiles, localProcessedFiles > 1 ? "s" : "");
+        if (localSavings < 0) {
+            printf("Result is bigger\n");
+            return;
+        }
 
-		double savedSize = localSavings;
-		double originalSize = localBytes;
-		double newSize = originalSize - savedSize;
-		int savedSizeMagnitude = savedSize <= 0.0 ? 0 : (int)(log(savedSize) / log(1024.0));
-		int originalSizeMagnitude = originalSize <= 0.0 ? 0 : (int)(log(originalSize) / log(1024.0));
-		int newSizeMagnitude = newSize <= 0.0 ? 0 : (int)(log(newSize) / log(1024.0));
+        double savedSize = localSavings;
+        double originalSize = localBytes;
+        double newSize = originalSize - savedSize;
+        int savedSizeMagnitude = savedSize <= 0.0 ? 0 : (int)(log(savedSize) / log(1024.0));
+        int originalSizeMagnitude = originalSize <= 0.0 ? 0 : (int)(log(originalSize) / log(1024.0));
+        int newSizeMagnitude = newSize <= 0.0 ? 0 : (int)(log(newSize) / log(1024.0));
 
         savedSize /= pow(1024.0, (double)savedSizeMagnitude);
         originalSize /= pow(1024.0, (double)originalSizeMagnitude);
@@ -112,22 +112,23 @@ static void ECT_ReportSavings(){
         auto originalSizeFormat = (originalSizeMagnitude == 0 ? std::setprecision(0) : std::setprecision(2));
         auto newSizeFormat = (newSizeMagnitude == 0 ? std::setprecision(0) : std::setprecision(2));
 
-        std::cout << "Saved " << std::fixed << savedSizeFormat << savedSize << sizes[savedSizeMagnitude] << "B"
-            << " out of " << std::fixed << originalSizeFormat << originalSize << sizes[originalSizeMagnitude] << "B"
-            << " (" << std::fixed << std::setprecision(4) << ((100.0 * localSavings) / localBytes) << "%), "
-            << "New size: " << std::fixed << newSizeFormat << newSize << sizes[newSizeMagnitude] << "B" << std::endl;
+        std::cout << "Saved " << std::fixed << savedSizeFormat << savedSize << sizes[savedSizeMagnitude] << "B" << std::endl
+            << "Old size: " << std::fixed << originalSizeFormat << originalSize << sizes[originalSizeMagnitude] << "B" << std::endl
+            << "New size: " << std::fixed << newSizeFormat << newSize << sizes[newSizeMagnitude] << "B"
+            << " (" << std::fixed << std::setprecision(1) << ((100.0 * localSavings) / localBytes) << "% smaller)" << std::endl;
 
         long long totalMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
         int milliseconds = totalMilliseconds % 1000;
         int seconds = (totalMilliseconds / 1000) % 60;
         int minutes = (totalMilliseconds / (1000 * 60)) % 60;
         int hours = totalMilliseconds / (1000 * 60 * 60);
-        std::cout << "Done in " << std::setw(2) << std::setfill('0') << hours
+        std::cout << "Completed in " << std::setw(2) << std::setfill('0') << hours
             << ":" << std::setw(2) << std::setfill('0') << minutes
             << ":" << std::setw(2) << std::setfill('0') << seconds
-            << "." << std::setw(3) << std::setfill('0') << milliseconds;
-	}
-	else {
+            << "." << std::setw(3) << std::setfill('0') << milliseconds
+            << std::endl;
+    }
+    else {
         printf("No compatible files found\n");
     }
 }
@@ -208,25 +209,24 @@ static unsigned char OptimizePNG(const char * Infile, const ECTOptions& Options)
     }
     if (mode != 1){
         if (Options.Allfilters){
-            x = Zopflipng(Options.strip, Infile, Options.Strict, _mode, 6 + Options.palette_sort, Options.DeflateMultithreading, quiet);
+            auto zopfli = [&](int index){
+                return Zopflipng(Options.strip, Infile, Options.Strict, _mode, index + Options.palette_sort, Options.DeflateMultithreading, quiet);
+            };
+
+            x = zopfli(6);
             if(x < 0){
                 return 1;
             }
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 5 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 1 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 2 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 3 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 4 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 7 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 8 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 11 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 12 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-            Zopflipng(Options.strip, Infile, Options.Strict, _mode, 13 + Options.palette_sort, Options.DeflateMultithreading, quiet);
+
+            static constexpr int indices[] = { 0, 5, 1, 2, 3, 4, 7, 8, 11, 12, 13 };
+            for (int i = 0; i < std::size(indices); ++i){
+                zopfli(indices[i]);
+            }
+
             if (Options.Allfiltersbrute){
-                Zopflipng(Options.strip, Infile, Options.Strict, _mode, 9 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-                Zopflipng(Options.strip, Infile, Options.Strict, _mode, 10 + Options.palette_sort, Options.DeflateMultithreading, quiet);
-                Zopflipng(Options.strip, Infile, Options.Strict, _mode, 14 + Options.palette_sort, Options.DeflateMultithreading, quiet);
+                zopfli(9);
+                zopfli(10);
+                zopfli(14);
             }
         }
         else if (mode == 9){
@@ -334,7 +334,7 @@ unsigned fileHandler(const char * Infile, const ECTOptions& Options, int interna
                 processedfiles.fetch_add(1);
                 bytes.fetch_add(size);
                 if (!statcompressedfile){
-                savings.fetch_add(size - filesize(Infile));
+                    savings.fetch_add(size - filesize(Infile));
                 }
                 else if (statcompressedfile){
                     savings.fetch_add((size - filesize(((std::string)Infile).append(Options.Zip ? ".zip" : ".gz").c_str())));
@@ -576,7 +576,8 @@ int main(int argc, const char * argv[]) {
 #ifndef NOMULTI
             else if (strncmp(argv[i], "--mt-deflate", 12) == 0) {
                 if (strncmp(argv[i], "--mt-deflate=", 13) == 0){
-                    Options.DeflateMultithreading = atoi(argv[i] + 13);
+                    int numThreads = atoi(argv[i] + 13);
+                    Options.DeflateMultithreading = numThreads > 0 ? numThreads : max(0, std::thread::hardware_concurrency() + numThreads);
                 }
                 else if (strcmp(argv[i], "--mt-deflate") == 0) {
                     Options.DeflateMultithreading = std::thread::hardware_concurrency();
@@ -584,7 +585,8 @@ int main(int argc, const char * argv[]) {
             }
             else if (strncmp(argv[i], "--mt-file", 9) == 0) {
                 if (strncmp(argv[i], "--mt-file=", 10) == 0){
-                    Options.FileMultithreading = atoi(argv[i] + 10);
+                    int numThreads = atoi(argv[i] + 10);
+                    Options.FileMultithreading = numThreads > 0 ? numThreads : max(0, std::thread::hardware_concurrency() + numThreads);
                 }
                 else if (strcmp(argv[i], "--mt-file") == 0) {
                     Options.FileMultithreading = std::thread::hardware_concurrency();

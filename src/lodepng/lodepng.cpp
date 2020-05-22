@@ -427,7 +427,8 @@ static unsigned lodepng_zlib_compress(unsigned char** out, size_t* outsize, cons
   if(!error)
   {
     unsigned ADLER32 = adler32(in, (unsigned)insize);
-    for(i = 0; i != deflatesize; ++i) ucvector_push_back(&outv, deflatedata[i]);
+    for (i = 0; i != deflatesize; ++i)
+      ucvector_push_back(&outv, deflatedata[i]);
     free(deflatedata);
     lodepng_add32bitInt(&outv, ADLER32);
   }
